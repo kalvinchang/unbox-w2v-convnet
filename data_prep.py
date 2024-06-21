@@ -45,5 +45,5 @@ if __name__ == "__main__":
     args = _get_args()
     parser = _SUPPORTED_DATASETS[args.dataset_type]
     df = parser(dataset_path=args.dataset_path, textgrid_path=args.textgrid_path)
-    df.to_csv((args.output_path / args.dataset_type).with_suffix('.csv'))
+    df.to_csv((args.output_path / args.dataset_type).with_suffix('.csv'), index=False)
     df.to_pickle((args.output_path / args.dataset_type).with_suffix('.pkl'))

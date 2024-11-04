@@ -5,4 +5,4 @@ transformers==4.22.2
 numpy==1.21.5
 tqdm==4.64.0
 jupyterlab==3.4.8
-umap==0.5.3
+umap-learn==0.5.3

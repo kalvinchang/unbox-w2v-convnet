@@ -11,6 +11,11 @@ import librosa
 import librosa.display
 import scipy
 
+
+# Goal: Identify the boundary in SSL feature space for [a] and [i]
+# Method: Optimize input signal to reproduce SSL features
+# Hypothesis: The proximity of the cluster will reproduce [a] and [i].
+
 net = AutoModelForPreTraining.from_pretrained("facebook/wav2vec2-large").to("cpu")
 signal = torch.nn.Parameter(torch.FloatTensor([0.0] * 1600), requires_grad=True)
 # signal = get_signal(100)[:1600]

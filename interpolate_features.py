@@ -4,6 +4,7 @@ from transformers import AutoModel
 import matplotlib.pyplot as plt
 import seaborn as sns
 from utils import get_signal, get_feature
+from configs import exp_configs
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -53,17 +54,29 @@ if __name__ == "__main__":
         p.requires_grad_(False)
 
     # given summation of 3 sine signals, can we reconstruct the sine signal?
+    # source: JC Catford et al., A practical introduction to phonetics
     vowels = zip(
         'ieɛaɑʌɤɯyøœɶɒɔou',
         [240, 390, 610, 850, 750, 600, 460, 300, 235, 370, 585, 820, 700, 500, 360, 250],
         [2400, 2300, 1900, 1610, 940, 1170, 1310, 1390, 2100, 1900, 1710, 1530, 750, 700, 640, 595],
     )
+    vowel_signals = {}
     for vowel, f1, f2 in vowels:
         # TODO: magnitude - empirically determine
-        # we're synthesizing a vowel (F0 100 Hz)
-        vowel_signal = get_signal([f1, f2])[:1600]
+        # we're synthesizing a vowel from the sum of 3 sine signals
+        vowel_signal = get_signal(freq=[f1, f2], mag=exp_configs["f0f1f2"]["mag"][:2])[:1600]
         # TODO: F3
+        vowel_signals[vowel] = vowel_signal
         reconstruct_signal(net, vowel_signal, 'single_vowel_' + vowel)
+        # TODO: listen
+
+    # linear interpolation of the features of [i] and [u]
+    for vowel1, vowel1_signal in vowel_signals.items():
+        for vowel2, vowel2_signal in vowel_signals.items():
+            if vowel1 != vowel2:
+                for coeff in np.linspace(0, 1, 11):
+                    interpolated_signal = coeff * vowel1_signal + (1 - coeff) * vowel2_signal
+                    reconstruct_signal(net, interpolated_signal, f'interpolated_{vowel1}_{vowel2}_{coeff}')
 
     # TODO: check the intermediate representations
-        # linear interpolation of the features of [i] and [u]
+    # TODO: listen

@@ -1,6 +1,6 @@
 # utils.py is from https://github.com/juice500ml/unbox-w2v-convnet/blob/main/utils.py
 
-from transformers import AutoModelForPreTraining
+from transformers import AutoModel
 import matplotlib.pyplot as plt
 import seaborn as sns
 from utils import get_signal, get_feature
@@ -11,37 +11,42 @@ import librosa
 import librosa.display
 import scipy
 
-
-# Goal: Identify the boundary in SSL feature space for [a] and [i]
-# Method: Optimize input signal to reproduce SSL features
+# Goal: Identify the "perceptual" boundary in SSL feature space for 2 vowels
+# Method: Optimize input signal to reproduce SSL features for the signals for 2 vowels
 # Hypothesis: The proximity of the cluster will reproduce [a] and [i].
 
-net = AutoModelForPreTraining.from_pretrained("facebook/wav2vec2-large").to("cpu")
-signal = torch.nn.Parameter(torch.FloatTensor([0.0] * 1600), requires_grad=True)
-# signal = get_signal(100)[:1600]
-# signal = torch.nn.Parameter(torch.FloatTensor(get_signal(100)[:1600]), requires_grad=True)
 
+
+# WavLM normalizes the magnitude and bias of the signal
+    # average magnitude following a Gaussian
+net = AutoModel.from_pretrained("microsoft/wavlm-large").to("cpu")
 for p in net.parameters():
     p.requires_grad_(False)
 
+# we're synthesizing a vowel (F0 100 Hz)
+gt_signal = get_signal(100)[:1600]
+gt_feats = net.feature_extractor(gt_signal[None, :])
+gt_feats = gt_feats.transpose(1, 2)
+_, gt_feats = net.feature_projection(gt_feats)
+
+signal = torch.nn.Parameter(torch.FloatTensor([0.0] * 1600), requires_grad=True)
 optimizer = torch.optim.Adam([signal])
 
 acc_loss = []
-for it in tqdm(range(10000)):
+loop = tqdm(range(1000))
+for it in loop:
     optimizer.zero_grad()
 
-    sig = signal
-    feats = net.wav2vec2.feature_extractor(sig[None, :])
+    feats = net.feature_extractor(signal[None, :])
     feats = feats.transpose(1, 2)
-    _, feats = net.wav2vec2.feature_projection(feats)
+    _, feats = net.feature_projection(feats)
 
-    batch_size, sequence_length, hidden_size = feats.shape
-    feats = net.quantizer.weight_proj(feats)
-    feats = feats.view(net.quantizer.num_groups * sequence_length, -1)
-    probs = feats.softmax(-1).reshape(sequence_length, net.quantizer.num_groups, -1)
-
-    freq_100 = (292, 290)
-    loss = -torch.log(probs[:, 0, freq_100[0]]).mean() - torch.log(probs[:, 1, freq_100[1]]).mean()
+    # L2 loss
+    loss = torch.square(feats - gt_feats).mean()
     acc_loss.append(loss.item())
     loss.backward()
     optimizer.step()
+    loop.set_description(f"loss: {loss.item():.4f}")
+
+# visual verification
+plt.plot(signal.detach().numpy())
